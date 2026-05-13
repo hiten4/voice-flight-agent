@@ -1,0 +1,19 @@
+voice-flight-agent/
+│
+├── app/
+│   ├── stt/
+│   ├── tts/
+│   ├── llm/
+│   ├── conversation/
+│   ├── flights/
+│   ├── ranking/
+│   ├── api/
+│   └── utils/
+│
+├── data/
+│
+├── tests/
+│
+├── requirements.txt
+│
+└── README.md

@@ -1,0 +1,5 @@
+faster-whisper
+sounddevice
+scipy
+gtts
+playsound==1.2.2
