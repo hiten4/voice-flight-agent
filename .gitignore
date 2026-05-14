@@ -1,0 +1,21 @@
+# Node modules
+node_modules/
+
+# Environment variables
+.env
+
+# Logs
+*.log
+
+# macOS files
+.DS_Store
+
+# Build folders
+dist/
+build/
+
+# Python cache
+__pycache__/
+*.pyc
+
+test_*.py
