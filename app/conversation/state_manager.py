@@ -1,41 +1,45 @@
 REQUIRED_FIELDS = [
     "source",
     "destination",
-    "date",
-    "passengers",
-    "class"
+    "date"
 ]
 
 
-def create_empty_state():
+class ConversationState:
 
-    return {
-        "intent": None,
-        "source": None,
-        "destination": None,
-        "date": None,
-        "passengers": None,
-        "class": None
-    }
+    def __init__(self):
 
+        self.state = {
+            "intent": None,
+            "source": None,
+            "destination": None,
+            "date": None,
+            "passengers": None,
+            "travel_class": None
+        }
 
-def update_state(current_state, extracted_data):
+    def update(self, extracted_data: dict):
 
-    for key, value in extracted_data.items():
+        for key, value in extracted_data.items():
 
-        if value is not None:
-            current_state[key] = value
+            if value is not None:
+                self.state[key] = value
 
-    return current_state
+    def get_missing_fields(self):
 
+        missing = []
 
-def get_missing_fields(state):
+        for field in REQUIRED_FIELDS:
 
-    missing = []
+            if not self.state.get(field):
+                missing.append(field)
 
-    for field in REQUIRED_FIELDS:
+        return missing
 
-        if state.get(field) is None:
-            missing.append(field)
+    def is_complete(self):
 
-    return missing
+        return len(self.get_missing_fields()) == 0
+
+    def get_state(self):
+
+        return self.state
