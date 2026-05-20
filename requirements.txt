@@ -1,5 +1,32 @@
-faster-whisper
-sounddevice
-scipy
-gtts
+# Speech-to-Text
+faster-whisper==1.0.3
+
+# Audio Recording
+sounddevice==0.5.2
+scipy==1.15.3
+numpy==2.2.6
+
+# Text-to-Speech
+gtts==2.5.4
 playsound==1.2.2
+
+# API Requests
+requests==2.32.3
+
+# Environment Variables
+python-dotenv==1.1.0
+
+# Data Validation
+pydantic==2.11.5
+
+# Date Handling
+python-dateutil==2.9.0.post0
+
+# Language Detection
+langdetect==1.0.9
+
+# Flight API
+amadeus==12.0.0
+
+# LLM Integration
+groq==0.26.0
