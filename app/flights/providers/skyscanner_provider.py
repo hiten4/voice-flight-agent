@@ -17,6 +17,7 @@ class SkyScannerProvider:
             "x-rapidapi-key": self.api_key,
             "x-rapidapi-host": self.host
         }
+
     def search_airport(self, city_name):
 
         url = "https://skyscanner-flights-travel-api.p.rapidapi.com/flights/searchAirport"
@@ -25,16 +26,23 @@ class SkyScannerProvider:
             "query": city_name
         }
 
-        response = requests.get(
-            url,
-            headers=self.headers,
-            params=querystring
-        )
-
-        data = response.json()
-
-        # print("\nRAW API RESPONSE:")
-        # print(data)
+        try:
+            response = requests.get(
+                url,
+                headers=self.headers,
+                params=querystring,
+                timeout=10
+            )
+            response.raise_for_status()
+            data = response.json()
+        except requests.exceptions.Timeout:
+            raise RuntimeError("Airport search timed out. Please try again.")
+        except requests.exceptions.ConnectionError:
+            raise RuntimeError("No internet connection. Please check your network.")
+        except requests.exceptions.HTTPError as e:
+            raise RuntimeError(f"Airport search failed with status {response.status_code}: {e}")
+        except Exception as e:
+            raise RuntimeError(f"Unexpected error during airport search: {e}")
 
         airports = data.get("places", [])
 
@@ -50,44 +58,45 @@ class SkyScannerProvider:
             "city": first_result.get("cityName"),
             "country": first_result.get("countryName")
         }
-    def search_flights(
-    self,
-    source_airport,
-    destination_airport,
-    date
-    ):
 
-        origin_entity_id = source_airport["entityId"]
-        destination_entity_id = destination_airport["entityId"]
+    def search_flights(
+        self,
+        source_airport,
+        destination_airport,
+        date
+    ):
 
         url = "https://skyscanner-flights-travel-api.p.rapidapi.com/flights/searchFlights"
 
         querystring = {
-        "originSkyId": source_airport["skyId"],
-        "destinationSkyId": destination_airport["skyId"],
-        "originEntityId": source_airport["entityId"],
-        "destinationEntityId": destination_airport["entityId"],
-        "date": date,
-        "cabinClass": "economy",
-        "adults": "1",
-        "currency": "INR",
-        "market": "IN",
-        "countryCode": "IN"
+            "originSkyId": source_airport["skyId"],
+            "destinationSkyId": destination_airport["skyId"],
+            "originEntityId": source_airport["entityId"],
+            "destinationEntityId": destination_airport["entityId"],
+            "date": date,
+            "cabinClass": "economy",
+            "adults": "1",
+            "currency": "INR",
+            "market": "IN",
+            "countryCode": "IN"
         }
 
-        # print("\nREQUEST URL:", url)
-        # print("QUERY PARAMS:", querystring)
-
-        response = requests.get(
-            url,
-            headers=self.headers,
-            params=querystring
-        )
-
-        data = response.json()
-
-        # print("\nRAW FLIGHT RESPONSE:")
-        # print(data)
+        try:
+            response = requests.get(
+                url,
+                headers=self.headers,
+                params=querystring,
+                timeout=15
+            )
+            response.raise_for_status()
+            data = response.json()
+        except requests.exceptions.Timeout:
+            raise RuntimeError("Flight search timed out. Please try again.")
+        except requests.exceptions.ConnectionError:
+            raise RuntimeError("No internet connection. Please check your network.")
+        except requests.exceptions.HTTPError as e:
+            raise RuntimeError(f"Flight search failed with status {response.status_code}: {e}")
+        except Exception as e:
+            raise RuntimeError(f"Unexpected error during flight search: {e}")
 
         return data
-    

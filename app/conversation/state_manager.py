@@ -25,6 +25,12 @@ class ConversationState:
             if value is not None:
                 self.state[key] = value
 
+    def clear_field(self, field: str):
+        """Reset a single field back to None so the agent asks for it again."""
+
+        if field in self.state:
+            self.state[field] = None
+
     def get_missing_fields(self):
 
         missing = []
