@@ -22,15 +22,11 @@ class SkyScannerProvider:
 
         url = "https://skyscanner-flights-travel-api.p.rapidapi.com/flights/searchAirport"
 
-        querystring = {
-            "query": city_name
-        }
-
         try:
             response = requests.get(
                 url,
                 headers=self.headers,
-                params=querystring,
+                params={"query": city_name},
                 timeout=10
             )
             response.raise_for_status()
@@ -49,22 +45,32 @@ class SkyScannerProvider:
         if not airports:
             return None
 
-        first_result = airports[0]
+        first = airports[0]
 
         return {
-            "skyId": first_result.get("skyId"),
-            "entityId": first_result.get("entityId"),
-            "name": first_result.get("name"),
-            "city": first_result.get("cityName"),
-            "country": first_result.get("countryName")
+            "skyId": first.get("skyId"),
+            "entityId": first.get("entityId"),
+            "name": first.get("name"),
+            "city": first.get("cityName"),
+            "country": first.get("countryName")
         }
 
     def search_flights(
         self,
         source_airport,
         destination_airport,
-        date
+        date,
+        passengers=1,
+        travel_class="economy"
     ):
+        """
+        passengers   — number of adult passengers (default 1)
+        travel_class — "economy", "business", or "first" (default "economy")
+        """
+
+        # Normalise travel_class to what the API accepts
+        valid_classes = {"economy", "business", "first"}
+        cabin = travel_class.lower() if travel_class and travel_class.lower() in valid_classes else "economy"
 
         url = "https://skyscanner-flights-travel-api.p.rapidapi.com/flights/searchFlights"
 
@@ -74,8 +80,8 @@ class SkyScannerProvider:
             "originEntityId": source_airport["entityId"],
             "destinationEntityId": destination_airport["entityId"],
             "date": date,
-            "cabinClass": "economy",
-            "adults": "1",
+            "cabinClass": cabin,
+            "adults": str(passengers),
             "currency": "INR",
             "market": "IN",
             "countryCode": "IN"

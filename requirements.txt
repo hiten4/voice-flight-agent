@@ -8,7 +8,7 @@ numpy==2.2.6
 
 # Text-to-Speech
 gtts==2.5.4
-playsound==1.2.2
+soundfile==0.12.1
 
 # API Requests
 requests==2.32.3
@@ -26,7 +26,7 @@ python-dateutil==2.9.0.post0
 langdetect==1.0.9
 
 # Flight API
-amadeus==12.0.0
-
 # LLM Integration
 groq==0.26.0
+# Date Parsing
+dateparser==1.2.0

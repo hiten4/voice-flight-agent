@@ -19,3 +19,7 @@ __pycache__/
 *.pyc
 
 test_*.py
+
+Folder.txt 
+
+temp/
