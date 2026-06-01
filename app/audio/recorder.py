@@ -5,7 +5,7 @@ from scipy.io.wavfile import write
 
 SAMPLE_RATE = 16000
 SILENCE_THRESHOLD = 500    # amplitude below this = silence
-SILENCE_DURATION = 1.5     # seconds of silence before stopping
+SILENCE_DURATION = 0.8     # seconds of silence before stopping
 MAX_DURATION = 10          # hard cap in seconds
 
 

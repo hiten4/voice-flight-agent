@@ -6,15 +6,12 @@ from app.conversation.state_manager import ConversationState
 from app.flights.providers.skyscanner_provider import SkyScannerProvider
 from app.flights.mock_provider import MockFlightProvider
 
-# ---------------------------------------------------------------
-# Set USE_MOCK=True during development to avoid burning API calls
-# Set USE_MOCK=False when testing against the real Skyscanner API
-# ---------------------------------------------------------------
 USE_MOCK = True
+
 from app.flights.parser import parse_flights
 from app.flights.ranker import rank_flights
 from app.response.response_generator import generate_flight_response, generate_flight_response_english
-from app.tts.gujarati_tts import speak
+from app.tts.gujarati_tts import speak, get_interrupted_audio
 from app.conversation.question_generator import generate_question
 from app.audio.recorder import record_audio
 from app.stt.whisper_engine import transcribe_audio
@@ -26,25 +23,67 @@ except ImportError:
     LANGDETECT_AVAILABLE = False
 
 VOICE_MODE = len(sys.argv) > 1 and sys.argv[1] == "voice"
+LANG = "en"
+EXIT_WORDS_EXACT  = {"quit", "exit", "bye", "goodbye", "stop", "no", "n", "dont", "don't"}
+EXIT_WORDS_STRONG = {"quit", "exit", "bye", "goodbye"}
+
+GREETING = (
+    "Hello! I am your flight assistant. "
+    "Tell me where you want to fly from, your destination, and your travel date."
+)
+
+# ---------------------------------------------------------------------------
+# VAD — initialise FIRST, before any speaking or printing, so it is warm
+# for every agent_say call including the greeting.
+# ---------------------------------------------------------------------------
+_vad = None
+if VOICE_MODE:
+    try:
+        from app.audio.vad import get_vad_listener
+        _vad = get_vad_listener()   # loads model
+        _vad.start()                # starts background mic thread
+    except Exception as e:
+        print(f"[VAD] Could not initialise: {e}")
 
 if VOICE_MODE:
     print("Voice mode active. The agent will speak and listen throughout.")
 else:
     print("Text mode. Type your query, or 'quit' to exit.")
 
-LANG = "en"
 
-EXIT_WORDS = {"quit", "exit", "bye", "stop", "no", "n", "dont", "don't"}
-
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
 
 def is_exit(text):
+    """
+    Exit only when:
+    - The entire input (1-2 words) is an exit word ("no", "bye", "stop"), OR
+    - A strong exit word appears anywhere ("bye", "quit", "goodbye").
+    This prevents "No, I want to go to Delhi" from triggering exit.
+    """
     import re
-    # Strip punctuation so "Stop!" "No," "don't" all match correctly
-    words = re.sub(r"[^\w\s]", "", text.lower()).split()
-    return any(w in EXIT_WORDS for w in words)
+    cleaned = re.sub(r"[^\w\s]", "", text.lower()).strip()
+    words = cleaned.split()
+    if not words:
+        return False
+    # Short input that is purely exit words
+    if len(words) <= 2 and all(w in EXIT_WORDS_EXACT for w in words):
+        return True
+    # Strong exit word anywhere in the sentence
+    if any(w in EXIT_WORDS_STRONG for w in words):
+        return True
+    return False
 
 
 def listen():
+    # If the user already spoke during a TTS interruption, reuse that audio
+    captured = get_interrupted_audio()
+    if captured:
+        print("(Using speech captured during interruption)")
+        text = transcribe_audio(captured)
+        print(f"You (transcribed): {text}")
+        return text
     print("Listening...")
     audio_path = record_audio()
     text = transcribe_audio(audio_path)
@@ -52,11 +91,14 @@ def listen():
     return text
 
 
-def agent_say(text, lang=None):
+def agent_say(text, lang=None, interruptible=True):
+    """Print the assistant reply and optionally speak it."""
     print(f"\nAssistant: {text}")
     if VOICE_MODE:
         try:
-            speak(text, lang=lang or LANG)
+            speak(text, lang=lang or LANG, interruptible=interruptible)
+        except KeyboardInterrupt:
+            pass   # user hit Ctrl-C during speech — continue gracefully
         except Exception as e:
             print(f"(Voice output unavailable: {e})")
 
@@ -83,17 +125,21 @@ def detect_language(text):
         return "en"
 
 
+# ---------------------------------------------------------------------------
+# Main conversation loop
+# ---------------------------------------------------------------------------
+
 def run_search():
     global LANG
 
-    state = ConversationState()
+    state    = ConversationState()
     provider = MockFlightProvider() if USE_MOCK else SkyScannerProvider()
-    history = []
+    history  = []
     is_first_input = True
 
     while True:
 
-        # --- Speak follow-up question before listening ---
+        # Speak follow-up question before listening
         if not is_first_input:
             missing = state.get_missing_fields()
             if missing:
@@ -101,7 +147,7 @@ def run_search():
                 agent_say(question)
                 history.append({"role": "assistant", "content": question})
 
-        # --- Get input ---
+        # Get input
         try:
             user_input = get_input()
             is_first_input = False
@@ -109,16 +155,15 @@ def run_search():
             agent_say("Could not capture input. Please try again.", lang="en")
             continue
 
-        # --- Exit check at EVERY input point ---
         if is_exit(user_input):
             agent_say("Goodbye! Have a great trip.", lang="en")
             return False
 
-        # --- Detect language once on first message ---
+        # Detect language on first message
         if not history:
             LANG = detect_language(user_input)
 
-        # --- Extract intent ---
+        # Extract intent
         try:
             extracted = extract_flight_info(user_input, history=history)
         except Exception:
@@ -128,7 +173,7 @@ def run_search():
         history.append({"role": "user", "content": user_input})
         state.update(extracted)
 
-        # --- Date validation ---
+        # Date validation
         if state.state.get("date") and not validate_date(state.state["date"]):
             msg = "That date is in the past. Please provide a future travel date."
             agent_say(msg, lang="en")
@@ -136,11 +181,10 @@ def run_search():
             history.append({"role": "assistant", "content": msg})
             continue
 
-        # --- Still missing fields? Loop back ---
         if state.get_missing_fields():
             continue
 
-        # --- Airport search ---
+        # Airport search
         agent_say("Let me search for flights.", lang="en")
 
         try:
@@ -169,7 +213,7 @@ def run_search():
             history.append({"role": "assistant", "content": msg})
             continue
 
-        # --- Flight search ---
+        # Flight search
         passengers   = state.state.get("passengers") or 1
         travel_class = state.state.get("travel_class") or "economy"
 
@@ -179,13 +223,13 @@ def run_search():
                 destination_airport=destination,
                 date=state.state["date"],
                 passengers=passengers,
-                travel_class=travel_class
+                travel_class=travel_class,
             )
         except Exception:
             agent_say("Could not fetch flights. Please try again.", lang="en")
             continue
 
-        # --- Parse and rank ---
+        # Parse and rank
         try:
             parsed = parse_flights(raw_flights)
             ranked = rank_flights(parsed)
@@ -193,16 +237,16 @@ def run_search():
             agent_say("Unexpected response from service. Please try again.", lang="en")
             continue
 
-        # --- Print English to terminal ---
+        # Print English summary to terminal always
         print("\n" + generate_flight_response_english(ranked))
 
-        # --- Speak results in detected language ---
+        # Speak results
         if LANG == "gu":
             agent_say(generate_flight_response(ranked), lang="gu")
         else:
             agent_say(generate_flight_response_english(ranked), lang="en")
 
-        # --- Post-result: ask to search again ---
+        # Post-result: search again?
         agent_say("Would you like to search for another flight? Say yes or no.", lang="en")
 
         try:
@@ -210,7 +254,6 @@ def run_search():
         except Exception:
             return False
 
-        # --- Exit check on post-result answer too ---
         if is_exit(again):
             agent_say("Goodbye! Have a great trip.", lang="en")
             return False
@@ -224,6 +267,10 @@ def run_search():
 
 
 if __name__ == "__main__":
+    # Speak greeting — NOT interruptible so user hears the full intro
+    if VOICE_MODE:
+        agent_say(GREETING, lang="en", interruptible=False)
+
     while True:
         if not run_search():
             break

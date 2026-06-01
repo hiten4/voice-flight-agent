@@ -1,32 +1,42 @@
 # Speech-to-Text
-faster-whisper==1.0.3
+faster-whisper
 
-# Audio Recording
-sounddevice==0.5.2
-scipy==1.15.3
-numpy==2.2.6
+# Audio Recording & Playback
+sounddevice
+scipy
+numpy
+soundfile
+
+# Voice Activity Detection (Silero VAD)
+# Option A — pip package (recommended, no internet needed after install):
+silero-vad
+# Option B — loaded automatically via torch.hub if silero-vad is not installed.
+# Either way, PyTorch is required:
+torch
 
 # Text-to-Speech
-gtts==2.5.4
-soundfile==0.12.1
+gtts
 
 # API Requests
-requests==2.32.3
+requests
 
 # Environment Variables
-python-dotenv==1.1.0
+python-dotenv
 
 # Data Validation
-pydantic==2.11.5
+pydantic
 
 # Date Handling
-python-dateutil==2.9.0.post0
+python-dateutil
+dateparser
 
 # Language Detection
-langdetect==1.0.9
+langdetect
 
-# Flight API
 # LLM Integration
-groq==0.26.0
-# Date Parsing
-dateparser==1.2.0
+groq
+
+# UI Dependencies
+streamlit
+streamlit-mic-recorder
+edge-tts
